@@ -1,0 +1,593 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#03170c">
+<title>RESENHA | Mundo Virtual</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ overflow:hidden;
+ background:#03170c;
+ color:#d8ffe3;
+ font-family:Arial,sans-serif;
+}
+#world{
+ position:fixed;
+ inset:0;
+}
+canvas{
+ width:100%;
+ height:100%;
+ display:block;
+ touch-action:none;
+}
+header{
+ position:fixed;
+ top:0;
+ left:0;
+ right:0;
+ z-index:5;
+ padding:18px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ background:linear-gradient(#001509dd,transparent);
+ pointer-events:none;
+}
+.logo{
+ font-size:25px;
+ font-weight:900;
+ letter-spacing:5px;
+ color:#35ff78;
+ text-shadow:0 0 18px #00ff66;
+}
+.subtitle{
+ font-size:9px;
+ letter-spacing:2px;
+ color:#9bffba;
+ margin-top:4px;
+}
+.status{
+ font-size:10px;
+ color:#6bff9a;
+ border:1px solid #1b9e53;
+ padding:9px;
+ border-radius:20px;
+ background:#052713cc;
+}
+.info{
+ position:fixed;
+ top:90px;
+ left:15px;
+ z-index:5;
+ background:#031d10dd;
+ border:1px solid #167b3a;
+ padding:13px;
+ border-radius:12px;
+ width:205px;
+ pointer-events:none;
+}
+.info h3{
+ color:#36ff79;
+ font-size:11px;
+ letter-spacing:2px;
+ margin:0 0 8px;
+}
+.info p{
+ color:#b6eec5;
+ font-size:11px;
+ line-height:1.5;
+}
+.bottom{
+ position:fixed;
+ bottom:15px;
+ left:15px;
+ right:15px;
+ z-index:5;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ gap:10px;
+ pointer-events:none;
+}
+.hint{
+ background:#031d10e8;
+ border:1px solid #167b3a;
+ padding:11px;
+ border-radius:10px;
+ font-size:10px;
+ color:#b6eec5;
+}
+button{
+ pointer-events:auto;
+ background:#075323;
+ border:1px solid #39ff79;
+ color:#caffd9;
+ padding:12px;
+ border-radius:9px;
+ font-weight:bold;
+}
+button:active{background:#128b43}
+#distortion{
+ position:fixed;
+ inset:0;
+ z-index:3;
+ pointer-events:none;
+ opacity:0;
+ background:repeating-linear-gradient(
+  0deg,
+  transparent 0px,
+  transparent 5px,
+  #3cff7415 6px
+ );
+ mix-blend-mode:screen;
+}
+body.distorted #distortion{
+ opacity:1;
+}
+body.distorted canvas{
+ animation:glitch .09s infinite alternate;
+ filter:hue-rotate(35deg) saturate(2.4) contrast(1.2);
+}
+body.distorted header,
+body.distorted .info,
+body.distorted .bottom{
+ animation:shake .13s infinite alternate;
+}
+@keyframes glitch{
+ 0%{transform:translate(3px,-2px) skewX(1deg)}
+ 50%{transform:translate(-4px,2px) skewX(-2deg)}
+ 100%{transform:translate(2px,3px) skewX(2deg)}
+}
+@keyframes shake{
+ from{transform:translateX(-2px)}
+ to{transform:translateX(2px)}
+}
+#toast{
+ position:fixed;
+ z-index:10;
+ top:70px;
+ left:50%;
+ transform:translateX(-50%);
+ background:#063b1b;
+ border:1px solid #39ff79;
+ padding:10px 17px;
+ border-radius:20px;
+ font-size:11px;
+ opacity:0;
+ transition:.2s;
+ pointer-events:none;
+}
+#toast.show{opacity:1}
+.mobile{
+ display:none;
+ position:fixed;
+ z-index:6;
+ bottom:85px;
+ right:15px;
+}
+.pad{
+ display:grid;
+ grid-template-columns:45px 45px 45px;
+ grid-template-rows:45px 45px;
+ gap:5px;
+}
+.pad button{
+ padding:0;
+ font-size:18px;
+ background:#052b16dd;
+ touch-action:none;
+}
+.up{grid-column:2}
+.left{grid-column:1}
+.down{grid-column:2}
+.right{grid-column:3}
+@media(max-width:700px){
+ .mobile{display:block}
+ .info{width:180px}
+ .info p{font-size:10px}
+ .logo{font-size:21px}
+ .hint{max-width:180px}
+}
+</style>
+</head>
+
+<body>
+
+<div id="world"></div>
+<div id="distortion"></div>
+
+<header>
+ <div>
+  <div class="logo">RESENHA</div>
+  <div class="subtitle">MUNDO VIRTUAL 3D</div>
+ </div>
+ <div class="status">● ONLINE LOCAL</div>
+</header>
+
+<div class="info">
+ <h3>MUNDO RESENHA</h3>
+ <p>Explore o ambiente virtual.</p>
+ <p>W A S D para movimentar.</p>
+ <p>Arraste a tela para girar a câmera.</p>
+ <p id="location">Local: Mundo Verde</p>
+</div>
+
+<div id="toast"></div>
+
+<div class="mobile">
+ <div class="pad">
+  <button class="up" data-key="w">▲</button>
+  <button class="left" data-key="a">◀</button>
+  <button class="down" data-key="s">▼</button>
+  <button class="right" data-key="d">▶</button>
+ </div>
+</div>
+
+<div class="bottom">
+ <div class="hint" id="hint">
+  Toque no ambiente para ativar a distorção.
+ </div>
+ <div>
+  <button id="jump">PULAR</button>
+  <button id="reset">RESET</button>
+ </div>
+</div>
+
+<script type="module">
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x031b0b);
+scene.fog = new THREE.Fog(0x031b0b,20,75);
+
+const camera = new THREE.PerspectiveCamera(
+ 70,innerWidth/innerHeight,.1,150
+);
+
+const renderer = new THREE.WebGLRenderer({
+ antialias:true
+});
+
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+document.getElementById('world').appendChild(
+ renderer.domElement
+);
+
+scene.add(new THREE.HemisphereLight(
+ 0x9cffb0,0x06150a,2
+));
+
+const light=new THREE.DirectionalLight(0xffffff,2);
+light.position.set(-10,20,10);
+light.castShadow=true;
+scene.add(light);
+
+const greenLight=new THREE.PointLight(
+ 0x00ff55,40,40
+);
+greenLight.position.set(0,5,0);
+scene.add(greenLight);
+
+const green=new THREE.MeshStandardMaterial({
+ color:0x075b25,
+ roughness:.65,
+ metalness:.2
+});
+
+const neon=new THREE.MeshStandardMaterial({
+ color:0x21ff65,
+ emissive:0x00aa35,
+ emissiveIntensity:1.5
+});
+
+const darkGreen=new THREE.MeshStandardMaterial({
+ color:0x062b13
+});
+
+function box(w,h,d,x,y,z,material){
+ const obj=new THREE.Mesh(
+  new THREE.BoxGeometry(w,h,d),
+  material
+ );
+ obj.position.set(x,y,z);
+ obj.castShadow=true;
+ obj.receiveShadow=true;
+ scene.add(obj);
+ return obj;
+}
+
+// CHÃO
+const floor=new THREE.Mesh(
+ new THREE.PlaneGeometry(100,100),
+ green
+);
+floor.rotation.x=-Math.PI/2;
+floor.receiveShadow=true;
+scene.add(floor);
+
+// GRADE VERDE
+const grid=new THREE.GridHelper(
+ 100,50,0x20ff65,0x0b6930
+);
+grid.position.y=.02;
+scene.add(grid);
+
+// CONSTRUÇÕES
+for(let i=0;i<12;i++){
+ const angle=i/12*Math.PI*2;
+ const radius=12;
+ const x=Math.sin(angle)*radius;
+ const z=Math.cos(angle)*radius;
+
+ box(5,5,4,x,2.5,z,darkGreen);
+ box(5.1,.2,4.1,x,5,z,neon);
+
+ for(let j=-1;j<=1;j++){
+  box(.55,1.3,.12,x+j*1.3,2.8,z-2.06,neon);
+ }
+}
+
+// LINHAS LUMINOSAS
+for(let i=-5;i<=5;i++){
+ box(.035,.03,30,i*2,.04,0,neon);
+ box(30,.03,.035,0,.05,i*2,neon);
+}
+
+// VEGETAÇÃO
+for(let i=0;i<30;i++){
+ const angle=i/30*Math.PI*2;
+ const radius=18+(i%4);
+ const x=Math.cos(angle)*radius;
+ const z=Math.sin(angle)*radius;
+
+ const trunk=new THREE.Mesh(
+  new THREE.CylinderGeometry(.18,.25,1.5,8),
+  darkGreen
+ );
+ trunk.position.set(x,.75,z);
+ scene.add(trunk);
+
+ const crown=new THREE.Mesh(
+  new THREE.IcosahedronGeometry(1.2,1),
+  neon
+ );
+ crown.position.set(x,2,z);
+ scene.add(crown);
+}
+
+// PERSONAGEM
+const avatar=new THREE.Group();
+scene.add(avatar);
+
+const body=new THREE.Mesh(
+ new THREE.CapsuleGeometry(.42,.85,6,12),
+ new THREE.MeshStandardMaterial({
+  color:0x16e95b,
+  emissive:0x064c20
+ })
+);
+body.position.y=1.05;
+avatar.add(body);
+
+const head=new THREE.Mesh(
+ new THREE.SphereGeometry(.32,20,16),
+ neon
+);
+head.position.y=1.85;
+avatar.add(head);
+
+const visor=new THREE.Mesh(
+ new THREE.BoxGeometry(.48,.12,.12),
+ darkGreen
+);
+visor.position.set(0,1.88,-.27);
+avatar.add(visor);
+
+avatar.position.set(0,0,3);
+
+// CONTROLES
+const keys={};
+let yaw=0;
+let pitch=-.12;
+let velocityY=0;
+let grounded=true;
+
+addEventListener('keydown',e=>{
+ keys[e.key.toLowerCase()]=true;
+});
+addEventListener('keyup',e=>{
+ keys[e.key.toLowerCase()]=false;
+});
+
+document.querySelectorAll('[data-key]').forEach(btn=>{
+ const key=btn.dataset.key;
+ btn.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  keys[key]=true;
+ });
+ const release=()=>{
+  keys[key]=false;
+ };
+ btn.addEventListener('pointerup',release);
+ btn.addEventListener('pointerleave',release);
+ btn.addEventListener('pointercancel',release);
+});
+
+// CÂMERA
+let dragging=false;
+let lastX=0,lastY=0;
+
+renderer.domElement.addEventListener('pointerdown',e=>{
+ dragging=true;
+ lastX=e.clientX;
+ lastY=e.clientY;
+});
+
+renderer.domElement.addEventListener('pointermove',e=>{
+ if(!dragging)return;
+
+ const dx=e.clientX-lastX;
+ const dy=e.clientY-lastY;
+
+ yaw-=dx*.004;
+ pitch=Math.max(-.7,Math.min(.4,pitch-dy*.003));
+
+ lastX=e.clientX;
+ lastY=e.clientY;
+});
+
+addEventListener('pointerup',()=>dragging=false);
+addEventListener('pointercancel',()=>dragging=false);
+
+// DISTORÇÃO POR TOQUE
+let distortionTimer=null;
+
+function activateDistortion(){
+ document.body.classList.add('distorted');
+
+ document.getElementById('hint').textContent=
+ 'DISTORÇÃO ATIVADA · TOQUE NO AMBIENTE NOVAMENTE';
+
+ clearTimeout(distortionTimer);
+
+ distortionTimer=setTimeout(()=>{
+  document.body.classList.remove('distorted');
+  document.getElementById('hint').textContent=
+  'O ambiente voltou ao normal.';
+ },4500);
+
+ const toast=document.getElementById('toast');
+ toast.textContent='DISTORÇÃO VERDE ATIVADA';
+ toast.classList.add('show');
+
+ setTimeout(()=>toast.classList.remove('show'),1300);
+}
+
+// Tocar no cenário ativa o efeito.
+// Arrastar a tela continua controlando a câmera.
+let touchStart=null;
+
+renderer.domElement.addEventListener('pointerdown',e=>{
+ touchStart={x:e.clientX,y:e.clientY};
+});
+
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(!touchStart)return;
+
+ const distance=Math.hypot(
+  e.clientX-touchStart.x,
+  e.clientY-touchStart.y
+ );
+
+ if(distance<12) activateDistortion();
+
+ touchStart=null;
+});
+
+// PULAR
+document.getElementById('jump').onclick=()=>{
+ if(grounded){
+  velocityY=7;
+  grounded=false;
+ }
+};
+
+// RESET
+document.getElementById('reset').onclick=()=>{
+ avatar.position.set(0,0,3);
+ yaw=0;
+ pitch=-.12;
+ velocityY=0;
+ document.body.classList.remove('distorted');
+ clearTimeout(distortionTimer);
+};
+
+// ANIMAÇÃO
+const clock=new THREE.Clock();
+
+function animate(){
+ requestAnimationFrame(animate);
+
+ const dt=Math.min(clock.getDelta(),.04);
+ const forward=
+  (keys.w||keys.arrowup?1:0)-
+  (keys.s||keys.arrowdown?1:0);
+
+ const side=
+  (keys.d||keys.arrowright?1:0)-
+  (keys.a||keys.arrowleft?1:0);
+
+ const speed=5;
+
+ const dx=(
+  -Math.sin(yaw)*forward+
+  Math.cos(yaw)*side
+ )*speed*dt;
+
+ const dz=(
+  -Math.cos(yaw)*forward-
+  Math.sin(yaw)*side
+ )*speed*dt;
+
+ avatar.position.x=THREE.MathUtils.clamp(
+  avatar.position.x+dx,-25,25
+ );
+
+ avatar.position.z=THREE.MathUtils.clamp(
+  avatar.position.z+dz,-25,25
+ );
+
+ if(forward||side){
+  avatar.rotation.y=Math.atan2(dx,dz);
+ }
+
+ velocityY-=18*dt;
+ avatar.position.y+=velocityY*dt;
+
+ if(avatar.position.y<=0){
+  avatar.position.y=0;
+  velocityY=0;
+  grounded=true;
+ }
+
+ const target=new THREE.Vector3(
+  avatar.position.x,
+  avatar.position.y+1.5,
+  avatar.position.z
+ );
+
+ const distance=7;
+
+ const cameraPosition=new THREE.Vector3(
+  target.x+Math.sin(yaw)*distance,
+  target.y+2+pitch*4,
+  target.z+Math.cos(yaw)*distance
+ );
+
+ camera.position.lerp(cameraPosition,.12);
+ camera.lookAt(target);
+
+ renderer.render(scene,camera);
+}
+
+animate();
+
+addEventListener('resize',()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
